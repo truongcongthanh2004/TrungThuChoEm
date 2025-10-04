@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Trái tim 3D & Nhạc Một Nhà</title>
+    <style>
+        body {
+            margin: 0;
+            background: black;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #music {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            color: white;
+            font-family: sans-serif;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 6px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.3s;
+            display: none;
+        }
+
+        #music:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        #startScreen {
+            position: fixed;
+            inset: 0;
+            background: black;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 26px;
+            cursor: pointer;
+            z-index: 200;
+            user-select: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="startScreen">💖 Mời Em Yêu Xinh Đẹp Của Anh Ấn Vào Nhá 💖</div>
+    <div id="music">🔊 Bật/Tắt nhạc</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FontLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/TextGeometry.js"></script>
+
+    <script>
+        // ===== Nhạc nền =====
+        let audio = new Audio("mot_nha.mp3");
+        audio.loop = true;
+        audio.volume = 0.6;
+
+        document.getElementById("startScreen").onclick = () => {
+            audio.play().catch(err => console.log("Không thể phát nhạc:", err));
+            document.getElementById("startScreen").remove();
+            document.getElementById("music").style.display = "block";
+        };
+
+        document.getElementById("music").onclick = () => {
+            if (audio.paused) audio.play();
+            else audio.pause();
+        };
+
+        // ===== Scene 3D =====
+        let scene = new THREE.Scene();
+        let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        let renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // ===== Tạo trái tim =====
+        let positions = [];
+        for (let i = 0; i < 12000; i++) {
+            let t = Math.random() * Math.PI * 2;
+            let x = 16 * Math.pow(Math.sin(t), 3);
+            let y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+            x += (Math.random() - 0.5) * 2;
+            y += (Math.random() - 0.5) * 2;
+            positions.push(x * 0.4, y * 0.4, (Math.random() - 0.5) * 2);
+        }
+        let geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        let material = new THREE.PointsMaterial({ color: 0xaa66ff, size: 0.05 });
+        let heart = new THREE.Points(geometry, material);
+        scene.add(heart);
+
+        // ===== Tạo chữ xoay quanh =====
+        let loader = new THREE.FontLoader();
+        let animateFunctions = [];
+
+        loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (font) {
+            let message = "Anh Chuc Em Yeu Xinh Dep Cua Anh Trung Thu Vui Ve Nhe ♥";
+
+            let textGeom = new THREE.TextGeometry(message, {
+                font: font,
+                size: 0.5,
+                height: 0.05,
+                curveSegments: 10
+            });
+            let textMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            let textMesh = new THREE.Mesh(textGeom, textMat);
+
+            textMesh.geometry.center();
+            let textGroup = new THREE.Group();
+            textGroup.add(textMesh);
+            textGroup.position.y = -4;
+            scene.add(textGroup);
+
+            function animateText() {
+                textGroup.rotation.y += 0.01;
+            }
+            animateFunctions.push(animateText);
+        });
+
+        // ===== Thêm ảnh xoay quanh trái tim =====
+        let textureLoader = new THREE.TextureLoader();
+        let imageFiles = ["img/image1.png", "img/image2.png", "img/image3.png", "img/image4.png", "img/image5.png", "img/image6.png", "img/image7.png", "img/image8.png",
+            "img/image9.png", "img/image10.png", "img/image11.png", "img/image12.png"]; // Thay bằng ảnh của bạn
+        let sprites = [];
+
+        imageFiles.forEach((path, i) => {
+            let tex = textureLoader.load(path);
+            let mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+            let sprite = new THREE.Sprite(mat);
+            sprite.scale.set(2, 2, 2); // kích thước ảnh
+            scene.add(sprite);
+            sprites.push({ sprite, angle: i * (2 * Math.PI / imageFiles.length) });
+        });
+
+        function animateImages() {
+            let radius = 8; // khoảng cách ảnh tới trái tim
+            sprites.forEach(obj => {
+                obj.angle += 0.005; // tốc độ quay
+                obj.sprite.position.x = Math.cos(obj.angle) * radius;
+                obj.sprite.position.z = Math.sin(obj.angle) * radius;
+                obj.sprite.position.y = Math.sin(Date.now() * 0.001 + obj.angle) * 1.5;
+            });
+        }
+        animateFunctions.push(animateImages);
+
+        // ===== Camera =====
+        camera.position.z = 15;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            heart.rotation.y += 0.004;
+            heart.rotation.x = Math.sin(Date.now() * 0.001) * 0.2;
+            animateFunctions.forEach(f => f());
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+
+</body>
+
+</html>
